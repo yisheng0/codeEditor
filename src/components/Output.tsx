@@ -1,5 +1,6 @@
 import { Button, Typography, message } from "antd";
-import { executeCode } from "../api";
+// import { executeCode } from "../api";
+import  Worker from "../worker.ts?worker";
 import { Language } from "../constant.ts";
 import * as monaco from 'monaco-editor';
 import React, { useState } from "react";
@@ -11,6 +12,7 @@ interface OutputProps {
     language: Language;
 }
 
+const worker = new Worker()
 const Output = ({ editorRef, language }: OutputProps) => {
     const [output, setOutput] = useState<string[] | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -21,14 +23,18 @@ const Output = ({ editorRef, language }: OutputProps) => {
         if (!sourceCode) return;
         try {
             setIsLoading(true);
-            const { run: result } = await executeCode(language, sourceCode);
-            setOutput(result.output.split("\n"));
-            // result.stderr as (false | true) ? setIsError(true) : setIsError(false);
-            if (result.stderr) {
-                setIsError(true);
-            } else {
-                setIsError(false);
-            }
+            // const { run: result } = await executeCode(language, sourceCode);
+            worker.postMessage({language, sourceCode})
+            worker.addEventListener('message', (event) => {
+                const result = event.data.run;
+                setOutput(result.output.split("\n"));
+                if (result.stderr) {
+                    setIsError(true);
+                } else {
+                    setIsError(false);
+                }
+            })
+
         } catch (error: unknown) {
             console.log(error);
             if (error instanceof Error) message.error(error.message || "Unable to run code");
